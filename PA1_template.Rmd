@@ -1,25 +1,133 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "1st Assignment of Reproducible Research Course"
+author: "Nicolas Corneau-Tremblay"
+date: "7/18/2017"
+output: html_document
 ---
 
+## Preamble
 
-## Loading and preprocessing the data
+```{r echo = FALSE}
+setwd("/Users/nicot/Documents/Coursera/Data science/Reproducible/Ass1")
+```
+
+This document is my submission for the first assignment of Coursera - Reproducible Research course. To complete this asignment, I use the following libraries :
+
+```{r message = FALSE}
+library(readr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+
+## 1 : Code for reading in the dataset and/or processing the data
+
+The data for this assignment is from a personal activity monitoring device and is available on Coursera website.
+
+```{r message = FALSE, cached = TRUE}
+activity <- read_csv("activity.csv")
+head(activity)
+```
+
+## 2 : Histogram of the total number of steps taken each day
+
+Here is the histogram representing the total number of steps taken each day calculated on the entire sample. First, I create a new dataframe containing the total, the mean and the median number of steps taken for each day of the week. I then use this new dataframe to plot a histogram.
+
+```{r message = FALSE, cached = TRUE}
+day <- activity %>%
+    group_by(date) %>%
+    summarize(n.steps = sum(steps, na.rm = TRUE),
+              mn.steps = mean(steps, na.rm = TRUE),
+              md.steps = median(steps, na.rm = TRUE))
+
+
+ggplot(day) +
+    geom_histogram(aes(n.steps), fill = "orange") +
+    xlab("Total number of steps taken") +
+    ylab("Frequency")
+
+```
+
+## 3 : Mean and median number of steps taken each day
+
+The **mean number of steps taken per day** is `r day %>% summarise(format(mean(n.steps, na.rm = TRUE), digits = 6, big.mark = ","))` and the **median number of steps taken per day** is `r day %>% summarise(format(median(n.steps, na.rm = TRUE), big.mark = ","))`.
+
+## 4 : Time series plot of the average number of steps taken
+```{r warning = FALSE}
+
+ggplot(day) +
+    geom_line(aes(date, mn.steps))
+```
+
+## 5 : The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r message = FALSE}
+inter <- activity %>%
+    group_by(interval) %>%
+    summarize(mn.steps = mean(steps, na.rm = TRUE)) %>%
+    arrange(desc(mn.steps))
+```
+The interval that contains, on average, the maximum number of steps is the `r head(inter, 1)[1]`th one of the day.
+
+## 6 : Code to describe and show a strategy for imputing missing data
+
+For the sake of this project, when the number of steps for an interval is missing, I impute the average number of steps taken in each interval of that day. If the entire day is missing, I then impute the whole sample mean for the interval. There is currently `r activity %>% subset(is.na(steps)) %>% summarise(format(n(), big.mark = ","))` missing values in the variable *steps*. The following code imputes the corresponding values :
+
+```{r}
+imputed <- activity %>%
+    arrange(date, interval) %>%
+    group_by(date) %>%
+    mutate(day.mean = mean(steps, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(all.mean = mean(steps, na.rm = TRUE))
+
+imputed <- imputed %>%
+    mutate(imp.val = as.integer(round(coalesce(day.mean, all.mean)))) %>%
+    mutate(steps = coalesce(steps, imp.val))
+
+```
+
+After imputation, there is `r imputed %>% subset(is.na(steps)) %>% summarise(format(n(), big.mark = ","))` missing value left in the new data set.
+
+## 7 : Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r message = FALSE, cached = TRUE}
+day.imp <- imputed %>%
+    group_by(date) %>%
+    summarize(n.steps = sum(steps, na.rm = TRUE),
+              mn.steps = mean(steps, na.rm = TRUE),
+              md.steps = median(steps, na.rm = TRUE))
+
+
+ggplot(day.imp) +
+    geom_histogram(aes(n.steps), fill = "orange") +
+    xlab("Total number of steps taken (with imputation)") +
+    ylab("Frequency")
+
+```
+
+## 8 : Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r message = FALSE, cached = TRUE}
+week.day <- imputed %>%
+    group_by(day = wday(date, label = TRUE, abbr = TRUE), interval) %>%
+    summarize(mn.steps = mean(steps, na.rm = TRUE))
+
+ggplot(week.day) +
+    geom_smooth(aes(interval, mn.steps, group = day, color = day), se = FALSE) +
+    labs(x = "5-minute interval", 
+         y = "Average number of steps",
+         color = "Days of the week")
+
+```
+
+## 9 : All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
+The R code is available throughout the document.
 
 
 
-## What is mean total number of steps taken per day?
 
 
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
